@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JD Skill Extractor — Chatbot</title>
+  <style>
+    :root {
+      --bg: #000000;        
+      --panel: #0d0d0d;    
+      --muted: #1e3a8a;     
+      --text: #e0f2fe;     
+      --accent: #3b82f6;   
+      --accent-2: #60a5fa;  
+      --bubble-user: #1e293b; 
+      --bubble-bot: #0f172a;  
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #000000, #0f172a 40%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    /* Header */
+    header {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between; 
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+      background: #000000cc;
+      backdrop-filter: blur(6px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header .left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+      letter-spacing: 0.4px;
+    }
+    header .dot {
+      width: 10px; height: 10px; border-radius: 999px; background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+    }
+    header .auto-fill-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    header .auto-fill-btn:hover {
+      background: #1e40af;
+    }
+
+    /* Chat bubbles and other UI (unchanged) */
+    .chat {
+      max-width: 880px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 20px 16px 120px;
+    }
+    .bubble {
+      padding: 12px 14px;
+      border-radius: 14px;
+      line-height: 1.45;
+      max-width: 78ch;
+      box-shadow: 0 6px 18px rgba(0,0,0,.4);
+      border: 1px solid rgba(59,130,246,.25);
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .row { display: flex; gap: 10px; margin: 10px 0; align-items: flex-end; }
+    .user { justify-content: flex-end; }
+    .user .bubble { background: var(--bubble-user); }
+    .bot .bubble { background: var(--bubble-bot); border-color: var(--accent-2); }
+
+    .skills {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+    }
+    .chip {
+      padding: 6px 10px; border-radius: 999px; font-size: 12px;
+      background: #1e40af; border: 1px solid #3b82f6; color: #dbeafe;
+    }
+
+    .composer-wrap {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(0deg, rgba(0,0,0,.8), rgba(0,0,0,0));
+      padding: 16px 12px 22px;
+    }
+    .composer {
+      max-width: 880px; margin: 0 auto; background: var(--panel);
+      border: 1px solid #1e293b; border-radius: 14px; padding: 10px; display: grid; grid-template-columns: 1fr auto; gap: 10px;
+    }
+    textarea {
+      width: 100%; background: transparent; color: var(--text); border: none; outline: none; resize: none; min-height: 44px; max-height: 180px; font-size: 14px; line-height: 1.4;
+    }
+    .controls { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      background: var(--accent); color: #ffffff; border: none; padding: 10px 14px; border-radius: 10px; font-weight: 600; cursor: pointer;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .ghost { background: #1e293b; color: #93c5fd; border: 1px solid #3b82f6; }
+    .file { position: relative; overflow: hidden; }
+    .file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .hint { color: #60a5fa; font-size: 12px; margin-left: 6px; }
+
+    .spinner { width: 16px; height: 16px; border: 2px solid #1e293b; border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg);} }
+
+    .dropzone {
+      border: 1px dashed #3b82f6; border-radius: 12px; padding: 10px; color: #93c5fd; font-size: 12px; text-align: center;
+    }
+    .dropzone.drag { border-color: var(--accent-2); color: #bfdbfe; background: rgba(59,130,246,.1); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="left">
+      <span class="dot"></span>
+      <h1>JD Skill Extractor</h1>
+    </div>
+    <button class="auto-fill-btn" onclick="alert('Auto-Fill triggered!')">Auto-Fill</button>
+  </header>
+
+  <main class="chat" id="chat"></main>
+
+  <!-- Composer stays same -->
+  <div class="composer-wrap">
+    <div class="composer">
+      <div>
+        <div id="dropzone" class="dropzone">Drop PDF/DOCX/TXT here or use Attach</div>
+        <textarea id="message" placeholder="Paste Your Job Description..."></textarea>
+      </div>
+      <div class="controls">
+        <label class="btn ghost file" title="Attach JD file (PDF/DOCX/TXT)">
+          🔗
+          <input id="file" type="file" accept=".pdf,.docx,.txt" />
+        </label>
+        <button id="send" class="btn">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // (same JS as before, unchanged)
+    const chat = document.getElementById('chat');
+    const textarea = document.getElementById('message');
+    const sendBtn = document.getElementById('send');
+    const fileInput = document.getElementById('file');
+    const dropzone = document.getElementById('dropzone');
+
+    function addMessage(role, html) {
+      const row = document.createElement('div');
+      row.className = `row ${role}`;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = html;
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      return bubble;
+    }
+
+    function skillsChips(skills) {
+      if (!skills || !skills.length) return '<div class="skills"><span class="chip">No skills found</span></div>';
+      return `<div class="skills">${skills.map(s => `<span class="chip">${s}</span>`).join('')}</div>`;
+    }
+
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function formatExtraction(data) {
+      let html = '';
+      if(data.skills){
+        html += `<div><strong>Skills:</strong></div>${skillsChips(data.skills)}`;
+      }
+      ['languages','education','Work Mode / City','country','experience','role'].forEach(f=>{
+        if(data[f]){
+          html += `<div><strong>${capitalize(f)}:</strong> ${skillsChips(data[f])}</div>`;
+        }
+      });
+      if(data.llm_summary){
+        html += `<div><strong>LLM Summary:</strong> ${data.llm_summary}</div>`;
+      }
+      return html;
+    }
+
+    async function postText(message) {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      if (!res.ok) throw new Error('Request failed');
+      return res.json();
+    }
+
+    async function postFile(file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/extract-skills/', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Upload failed');
+      return res.json();
+    }
+
+    function showThinking() {
+      const row = document.createElement('div');
+      row.className = 'row bot';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><div class="spinner"></div><span>Analyzing JD…</span></div>';
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      return row;
+    }
+
+    async function handleSend() {
+      const text = textarea.value.trim();
+      const file = fileInput.files[0];
+      if (!text && !file) return;
+
+      const userHtml = [
+        text ? `<div>${escapeHtml(text)}</div>` : '',
+        file ? `<div style="opacity:.8;font-size:12px;margin-top:6px;">🗁 ${file.name}</div>` : ''
+      ].join('');
+      addMessage('user', userHtml);
+
+      textarea.value = '';
+      sendBtn.disabled = true;
+
+      const thinking = showThinking();
+
+      try {
+        let data;
+        if (file) data = await postFile(file);
+        else data = await postText(text);
+
+        console.log("Server response:", data); 
+
+        thinking.remove();
+        addMessage('bot', formatExtraction(data));
+      } catch (e) {
+        thinking.remove();
+        addMessage('bot', `<div>❌ ${e.message || 'Something went wrong.'}</div>`);
+      } finally {
+        sendBtn.disabled = false;
+        fileInput.value = '';
+        dropzone.textContent = 'Drop PDF/DOCX/TXT here or use Attach'; 
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"]/g, c => (
+        {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]
+      ));
+    }
+
+    sendBtn.addEventListener('click', handleSend);
+    textarea.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        dropzone.textContent = fileInput.files[0].name;
+      }
+    });
+
+    ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e=>{
+      e.preventDefault(); 
+      dropzone.classList.add('drag');
+    }));
+
+    ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e=>{
+      e.preventDefault(); 
+      dropzone.classList.remove('drag');
+    }));
+
+    dropzone.addEventListener('drop', e => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) { 
+        fileInput.files = e.dataTransfer.files; 
+        dropzone.textContent = f.name;
+      }
+    });
+
+    //Default welcome message
+    document.addEventListener("DOMContentLoaded", () => {
+      addMessage('bot', '<div>Welcome to JD Skill Extractor!<br/>Upload a JD file (PDF/DOCX/TXT) or paste text, and I’ll extract the skills for you.</div>');
+    });
+  </script>
+</body>
+</html>
